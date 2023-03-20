@@ -66,18 +66,18 @@ def get_api_answer(timestamp):
         homework_statuses = requests.get(ENDPOINT,
                                          headers=HEADERS,
                                          params=params)
-    except requests.exceptions.ConnectionError:
-        raise ApiConnectionError('Нет подключения к API.')
+    except requests.exceptions.ConnectionError as error:
+        raise SystemExit(error)
     except requests.exceptions.Timeout as error:
         raise SystemExit(error)
     except requests.exceptions.RequestException as error:
-        raise SystemExit(error)
+        raise ApiConnectionError('Нет подключения к API.')
     except Exception:
         raise AnyInvEndpointError('Другие сбои при запросе к эндпоинту.')
     if homework_statuses.status_code != HTTPStatus.OK:
         raise ApiConnectionError(f'Api {ENDPOINT} недоступен')
     try:
-        homework_statuses.json()
+        return homework_statuses.json()
     except json.decoder.JSONDecodeError:
         print('Не формат JSON')
 
