@@ -3,10 +3,11 @@ import os
 import sys
 import time
 from http import HTTPStatus
+from dotenv import load_dotenv
 
+import json
 import requests
 import telegram
-from dotenv import load_dotenv
 
 from exceptions import (AnyInvEndpointError, ApiConnectionError,
                         InvalidKeysResponseError, NoStatusResponseError,
@@ -54,8 +55,8 @@ def send_message(bot, message):
             text=message
         )
         logger.debug(f'Отправлено сообщение в чат: {message}')
-    except Exception as exc:
-        logger.error(f'Cообщение в чат не отправлено: {exc}')
+    except telegram.TelegramError as err:
+        logger.error(f'Cообщение в чат не отправлено: {err}')
 
 
 def get_api_answer(timestamp):
@@ -65,13 +66,20 @@ def get_api_answer(timestamp):
         homework_statuses = requests.get(ENDPOINT,
                                          headers=HEADERS,
                                          params=params)
-    except ConnectionError as err:
-        raise ApiConnectionError from err
-    except Exception as exc:
-        raise AnyInvEndpointError from exc
+    except requests.exceptions.ConnectionError:
+        raise ApiConnectionError('Нет подключения к API.')
+    except requests.exceptions.Timeout as error:
+        raise SystemExit(error)
+    except requests.exceptions.RequestException as error:
+        raise SystemExit(error)
+    except Exception:
+        raise AnyInvEndpointError('Другие сбои при запросе к эндпоинту.')
     if homework_statuses.status_code != HTTPStatus.OK:
         raise ApiConnectionError(f'Api {ENDPOINT} недоступен')
-    return homework_statuses.json()
+    try:
+        homework_statuses.json()
+    except json.decoder.JSONDecodeError:
+        print('Не формат JSON')
 
 
 def check_response(response):
@@ -81,6 +89,8 @@ def check_response(response):
     if not response:
         raise NoStatusResponseError
     if 'homeworks' not in response:
+        raise InvalidKeysResponseError
+    if 'current_date' not in response:
         raise InvalidKeysResponseError
     if type(response.get('homeworks')) is not list:
         raise TypeError
@@ -105,11 +115,12 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time())
+    timestamp = int(time.time() / 10)
     status_bot = ''
+    last_error = ''
     if not check_tokens():
         logger.critical('Отсутствуют токены!')
-        exit()
+        sys.exit()
     while True:
         try:
             response = get_api_answer(timestamp)
@@ -124,6 +135,10 @@ def main():
                 status_bot = message
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
+            if last_error != error:
+                send_message(bot, message)
+                last_error = error
+            logger.exception(message)
         finally:
             time.sleep(RETRY_PERIOD)
 
