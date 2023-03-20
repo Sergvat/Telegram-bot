@@ -70,7 +70,7 @@ def get_api_answer(timestamp):
         raise SystemExit(error)
     except requests.exceptions.Timeout as error:
         raise SystemExit(error)
-    except requests.exceptions.RequestException as error:
+    except requests.exceptions.RequestException:
         raise ApiConnectionError('Нет подключения к API.')
     except Exception:
         raise AnyInvEndpointError('Другие сбои при запросе к эндпоинту.')
