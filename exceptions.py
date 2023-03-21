@@ -7,12 +7,15 @@ class AnyInvEndpointError(Exception):
 
 
 class InvalidKeysResponseError(Exception):
-    """Отсутствие ожидаемых ключей в ответе API """
+    """Отсутствие ожидаемых ключей в ответе API."""
 
 
 class NoStatusResponseError(Exception):
-    '''Отсутствие в ответе новых статусов.'''
+    """Отсутствие в ответе новых статусов."""
 
 
 class UnexpectedHmwStatus(Exception):
     """Неожиданный статус домашней работы."""
+
+class ResponseNotJson(Exception):
+    """Ответ не в формате JSON."""

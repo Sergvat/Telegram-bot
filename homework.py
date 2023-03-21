@@ -2,16 +2,16 @@ import logging
 import os
 import sys
 import time
+import json
 from http import HTTPStatus
 from dotenv import load_dotenv
 
-import json
 import requests
 import telegram
 
 from exceptions import (AnyInvEndpointError, ApiConnectionError,
                         InvalidKeysResponseError, NoStatusResponseError,
-                        UnexpectedHmwStatus)
+                        UnexpectedHmwStatus, ResponseNotJson)
 
 load_dotenv()
 
@@ -73,13 +73,13 @@ def get_api_answer(timestamp):
     except requests.exceptions.RequestException:
         raise ApiConnectionError('Нет подключения к API.')
     except Exception:
-        raise AnyInvEndpointError('Другие сбои при запросе к эндпоинту.')
+        raise AnyInvEndpointError('Сбои при запросе к эндпоинту.')
     if homework_statuses.status_code != HTTPStatus.OK:
         raise ApiConnectionError(f'Api {ENDPOINT} недоступен')
     try:
         return homework_statuses.json()
     except json.decoder.JSONDecodeError:
-        print('Не формат JSON')
+        raise ResponseNotJson('Не формат JSON.')
 
 
 def check_response(response):
@@ -87,13 +87,13 @@ def check_response(response):
     if type(response) is not dict:
         raise TypeError
     if not response:
-        raise NoStatusResponseError
+        raise NoStatusResponseError('Отсутствуют новые статусы.')
     if 'homeworks' not in response:
-        raise InvalidKeysResponseError
+        raise InvalidKeysResponseError('В ответе нет ключа "homeworks".')
     if 'current_date' not in response:
-        raise InvalidKeysResponseError
+        raise InvalidKeysResponseError('В ответе нет ключа "current_date".')
     if type(response.get('homeworks')) is not list:
-        raise TypeError
+        raise TypeError('Тип ответа не соотвествует ожидаемому.')
     return response.get('homeworks')
 
 
@@ -120,7 +120,7 @@ def main():
     last_error = ''
     if not check_tokens():
         logger.critical('Отсутствуют токены!')
-        sys.exit()
+        raise SystemExit('Отсутствуют токены!')
     while True:
         try:
             response = get_api_answer(timestamp)
